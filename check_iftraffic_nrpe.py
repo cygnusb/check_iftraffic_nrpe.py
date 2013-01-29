@@ -159,13 +159,19 @@ def get_data():
             data = dict()
             iface_name, iface_data = line.split(':')
             iface_name = iface_name.strip()
-            data_values = iface_data.split()
+            data_values = list(map(int, iface_data.split()))
             # receive: column 0
             # transmit: column 8
-            data['rxbytes'] = int(data_values[0])
-            data['rxpackets'] = int(data_values[1])
-            data['txbytes'] = int(data_values[8])
-            data['txpackets'] = int(data_values[9])
+            data['rxbytes'] = data_values[0]
+            data['rxpackets'] = data_values[1]
+            # errors + fifo_errors + frame_errors
+            data['rxerrors'] = data_values[2] + data_values[4] + data_values[5]
+            data['rxdrops'] = data_values[3]
+            data['txbytes'] = data_values[8]
+            data['txpackets'] = data_values[9]
+            # errors + fifo_errors + collisions + carrier_errors
+            data['txerrors'] = data_values[10] + data_values[12] + data_values[13]
+            data['txdrops'] = data_values[11]
             traffic[iface_name] = data
     return traffic
 
@@ -241,7 +247,8 @@ def main():
     _status_codes = {'OK': 0, 'WARNING': 1, 'CRITICAL': 2, 'UNKNOWN': 3}
     # counters needed for calculations
     # see get_data() to see how it is used
-    _counters = ['rxbytes', 'txbytes', 'rxpackets', 'txpackets']
+    _counters = ['rxbytes', 'txbytes', 'rxpackets', 'txpackets',
+                 'rxerrors', 'txerrors', 'rxdrops', 'txdrops']
     # The default exit status
     exit_status = 'OK'
     # The temporary file where data will be stored between to metrics
@@ -332,38 +339,28 @@ def main():
             # Traffic calculation
             #
 
-            # calculate the bytes
-            txbytes = calc_diff(if_data0[if_name]['txbytes'], uptime0,
-                                if_data1['txbytes'], uptime1)
-            rxbytes = calc_diff(if_data0[if_name]['rxbytes'], uptime0,
-                                if_data1['rxbytes'], uptime1)
-            txpackets = calc_diff(if_data0[if_name]['txpackets'], uptime0,
-                                  if_data1['txpackets'], uptime1)
-            rxpackets = calc_diff(if_data0[if_name]['rxpackets'], uptime0,
-                                  if_data1['rxpackets'], uptime1)
-            # calculate the bytes per second
-            txbytes = txbytes / elapsed_time
-            rxbytes = rxbytes / elapsed_time
-            txpackets /= elapsed_time
-            rxpackets /= elapsed_time
+            rates = dict()
+            for key in _counters:
+                rates[key] = calc_diff(if_data0[if_name][key], uptime0,
+                                       if_data1[key], uptime1) / elapsed_time
 
             #
             # Decide a Nagios status
             #
 
             # determine a status for TX
-            new_exit_status = nagios_value_status(txbytes, bandwidth,
+            new_exit_status = nagios_value_status(rates['txbytes'], bandwidth,
                                                   args.critical, args.warning)
             if new_exit_status != 'OK':
                 problems.append("%s: %sMbs/%sMbs" % \
-                                (if_name, txbytes, bandwidth))
+                                (if_name, rates['txbytes'], bandwidth))
             exit_status = worst_status(exit_status, new_exit_status)
             # determine a status for RX
-            new_exit_status = nagios_value_status(rxbytes, bandwidth,
+            new_exit_status = nagios_value_status(rates['rxbytes'], bandwidth,
                                                   args.critical, args.warning)
             if new_exit_status != 'OK':
                 problems.append("%s: %sMbs/%sMbs" % \
-                                (if_name, rxbytes, bandwidth))
+                                (if_name, rates['rxbytes'], bandwidth))
             exit_status = worst_status(exit_status, new_exit_status)
 
             #
@@ -381,13 +378,15 @@ def main():
             min_level = 0.0
             max_level = bandwidth
 
-            perfdata.append(get_perfdata('out-' + if_name, txbytes, warn_level,
+            perfdata.append(get_perfdata('out-' + if_name, rates['txbytes'], warn_level,
                             crit_level, min_level, max_level))
-            perfdata.append(get_perfdata('in-' + if_name, rxbytes, warn_level,
+            perfdata.append(get_perfdata('in-' + if_name, rates['rxbytes'], warn_level,
                             crit_level, min_level, max_level))
 
-            perfdata.append("pktout-%s=%.1f" % (if_name, txpackets))
-            perfdata.append("pktin-%s=%.1f" % (if_name, rxpackets))
+            for key, prefix in [("txpackets", "pktout"), ("rxpackets", "pktin"),
+                                ("txerrors", "errout"), ("rxerrors", "errin"),
+                                ("rxdrops", "dropout"), ("txdrops", "dropin")]:
+                perfdata.append("%s-%s=%.1f" % (prefix, if_name, rates[key]))
 
     #
     # Program output
