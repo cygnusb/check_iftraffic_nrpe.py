@@ -237,6 +237,27 @@ def excludere_device(exclude, data):
             if devicere.match(device):
                 del data[device]
 
+def vlanexclude_device(vlanexclude, data):
+    vlanranges = []
+    for vlanlist in vlanexclude:
+        for vlanrange in vlanlist.split(','):
+            if '-' in vlanrange:
+                start, stop = vlanrange.split('-', 1)
+                vlanranges.append((int(start), int(stop)))
+            else:
+                vlanranges.append((int(vlanrange), int(vlanrange)))
+
+    for device in list(data):
+        try:
+           _, vlan = device.split('.', 1)
+           vlan = int(vlan)
+        except ValueError:
+            continue # device does not have a vlan or it is not a number
+
+        for start, stop in vlanranges:
+            if start <= vlan <= stop:
+                del data[device]
+                break
 
 def specify_device(devices, data):
     """Only includes interfaces specified by the user"""
@@ -283,6 +304,8 @@ def parse_arguments():
                    help='if all interfaces, then exclude some')
     g.add_argument('-X', '--excludere', nargs='*',
                    help='if all interfaces, then exclude matching')
+    g.add_argument('--vlanexclude', nargs='*',
+                   help='skip the given vlans, ranges allowed')
     #p.add_argument('-u', '--units', type=str, choices=['G', 'M', 'k'],
     #               help='units')
     #p.add_argument('-B', '--total', action=store_true,
@@ -364,6 +387,9 @@ def main():
 
     if args.linktype:
         ifdetect.linktype_filter(args.linktype, traffic)
+
+    if args.vlanexclude:
+        vlanexclude_device(args.vlanexclude, traffic)
 
     # only keep the wanted interfaces if specified
     if args.interfaces:
