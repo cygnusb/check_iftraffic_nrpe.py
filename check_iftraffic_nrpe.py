@@ -172,6 +172,8 @@ def get_data():
 
 class InterfaceDetection(object):
     SIOCGIFHWADDR = 0x8927
+    SIOCETHTOOL = 0x8946
+    ETHTOOL_GSET = 0x1
     IF_NAMESIZE = 16
     families = {
         1: "ethernet",
@@ -186,13 +188,27 @@ class InterfaceDetection(object):
     def __del__(self):
         self.socket.close()
 
+    def query_ifreq(self, interface, cmd, payload):
+        ifreq = struct.pack("%ds" % self.IF_NAMESIZE, interface) + payload + 1024 * "\0"
+        ifreq = array.array("b", ifreq)
+        fcntl.ioctl(self.socket.fileno(), cmd, ifreq, True)
+        return ifreq[self.IF_NAMESIZE:]
+
     def query_linktype(self, interface):
-        buff = struct.pack("%ds1024x" % self.IF_NAMESIZE, interface)
-        buff = array.array("b", buff)
-        fcntl.ioctl(self.socket.fileno(), self.SIOCGIFHWADDR, buff, True)
-        fmt = "%dsH" % self.IF_NAMESIZE
-        _, family = struct.unpack(fmt, buff[:struct.calcsize(fmt)])
+        ifreq = self.query_ifreq(interface, self.SIOCGIFHWADDR, "")
+        family, = struct.unpack("H", ifreq[:2])
         return self.families.get(family, "unknown")
+
+    def query_linkspeed(self, interface):
+        # See http://stackoverflow.com/a/2876605/466143.
+        ethtoolcmd = struct.pack("L1024x", self.ETHTOOL_GSET)
+        ethtoolcmd = array.array("b", ethtoolcmd)
+        payload = struct.pack("P", ethtoolcmd.buffer_info()[0])
+        self.query_ifreq(interface, self.SIOCETHTOOL, payload)
+        fmt = "IIIH" # See /usr/include/linux/ethtool.h.
+        _, _, _, speed = struct.unpack(fmt, ethtoolcmd[:struct.calcsize(fmt)])
+        # speed is reported in MBit
+        return speed * 1024 * 1024 / 8
 
     def linktype_filter(self, linktypes, data):
         for device in list(data):
@@ -389,19 +405,24 @@ def main():
             # Decide a Nagios status
             #
 
+            if ifdetect.query_linktype(if_name) == "ethernet":
+                if_bandwidth = ifdetect.query_linkspeed(if_name)
+            else:
+                if_bandwidth = bandwidth
+
             # determine a status for TX
-            new_exit_status = nagios_value_status(txbytes, bandwidth,
+            new_exit_status = nagios_value_status(txbytes, if_bandwidth,
                                                   args.critical, args.warning)
             if new_exit_status != 'OK':
                 problems.append("%s: %sMbs/%sMbs" % \
-                                (if_name, txbytes, bandwidth))
+                                (if_name, txbytes, if_bandwidth))
             exit_status = worst_status(exit_status, new_exit_status)
             # determine a status for RX
-            new_exit_status = nagios_value_status(rxbytes, bandwidth,
+            new_exit_status = nagios_value_status(rxbytes, if_bandwidth,
                                                   args.critical, args.warning)
             if new_exit_status != 'OK':
                 problems.append("%s: %sMbs/%sMbs" % \
-                                (if_name, rxbytes, bandwidth))
+                                (if_name, rxbytes, if_bandwidth))
             exit_status = worst_status(exit_status, new_exit_status)
 
             #
@@ -414,8 +435,8 @@ def main():
             (warn level);(crit level);(min level);(max level)
             """
 
-            warn_level = int(args.warning) * (bandwidth / 100)
-            crit_level = int(args.critical) * (bandwidth / 100)
+            warn_level = int(args.warning) * (if_bandwidth / 100)
+            crit_level = int(args.critical) * (if_bandwidth / 100)
             min_level = 0.0
             max_level = bandwidth
 
