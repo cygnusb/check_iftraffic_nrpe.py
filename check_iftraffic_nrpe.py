@@ -125,6 +125,8 @@ def load_data(filename, columns):
             device_name = data.pop(0)
             # transform values into integer
             data = map(int, data)
+            if len(data) < len(columns):
+                raise ValueError("data format upgrade")
             # create a nice dictionnary of the values
             values[device_name] = dict(zip(columns, data))
     return uptime0, last_modification, values
@@ -161,7 +163,9 @@ def get_data():
             # receive: column 0
             # transmit: column 8
             data['rxbytes'] = int(data_values[0])
+            data['rxpackets'] = int(data_values[1])
             data['txbytes'] = int(data_values[8])
+            data['txpackets'] = int(data_values[9])
             traffic[iface_name] = data
     return traffic
 
@@ -237,7 +241,7 @@ def main():
     _status_codes = {'OK': 0, 'WARNING': 1, 'CRITICAL': 2, 'UNKNOWN': 3}
     # counters needed for calculations
     # see get_data() to see how it is used
-    _counters = ['rxbytes', 'txbytes']
+    _counters = ['rxbytes', 'txbytes', 'rxpackets', 'txpackets']
     # The default exit status
     exit_status = 'OK'
     # The temporary file where data will be stored between to metrics
@@ -320,6 +324,10 @@ def main():
         elapsed_time = time.time() - time0
         for if_name, if_data1 in traffic.iteritems():
 
+            if if_name not in if_data0:
+                # The interface was added between the last and the current run.
+                continue
+
             #
             # Traffic calculation
             #
@@ -329,9 +337,15 @@ def main():
                                 if_data1['txbytes'], uptime1)
             rxbytes = calc_diff(if_data0[if_name]['rxbytes'], uptime0,
                                 if_data1['rxbytes'], uptime1)
+            txpackets = calc_diff(if_data0[if_name]['txpackets'], uptime0,
+                                  if_data1['txpackets'], uptime1)
+            rxpackets = calc_diff(if_data0[if_name]['rxpackets'], uptime0,
+                                  if_data1['rxpackets'], uptime1)
             # calculate the bytes per second
             txbytes = txbytes / elapsed_time
             rxbytes = rxbytes / elapsed_time
+            txpackets /= elapsed_time
+            rxpackets /= elapsed_time
 
             #
             # Decide a Nagios status
@@ -371,6 +385,9 @@ def main():
                             crit_level, min_level, max_level))
             perfdata.append(get_perfdata('in-' + if_name, rxbytes, warn_level,
                             crit_level, min_level, max_level))
+
+            perfdata.append("pktout-%s=%.1f" % (if_name, txpackets))
+            perfdata.append("pktin-%s=%.1f" % (if_name, rxpackets))
 
     #
     # Program output
