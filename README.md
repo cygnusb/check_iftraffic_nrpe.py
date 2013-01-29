@@ -45,8 +45,14 @@ Define a Gigabit interface (the value must be in bytes):
     check_iftraffic_nrpe.py --bandwidth=131072000
 
 
-Author
-------
+Authors
+-------
+Copyright 2012 Van Dyck Sven <mobilesvenvd@gmail.com> (original perl version)
+Copyright 2012 Samuel Krieg <my_first_name.my_last_name at gmail dot com>
+Copyright 2013 Cygnus Networks GmbH <info@cygnusnetworks.de>
 
-Samuel Krieg <my_first_name.my_last_name at gmail dot com>
-
+Neither Van Dyck Sven nor Samuel Krieg have specified a license for their
+works. According to the GitHub terms of serivce the authors implicitly allow
+anyone to view and fork their sources. The contributions of
+`*@cygnusnetworks.de` are licensed under the MIT/X11 license in the hopes that
+all authors license their works under a compatible license such as GPLv2.
