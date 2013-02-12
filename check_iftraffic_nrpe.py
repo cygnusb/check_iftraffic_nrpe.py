@@ -14,6 +14,7 @@
 
 import array
 import fcntl
+import errno
 import os
 import socket
 import struct
@@ -392,7 +393,13 @@ def main():
             #
 
             if ifdetect.query_linktype(if_name) == "ethernet":
-                if_bandwidth = ifdetect.query_linkspeed(if_name)
+                try:
+                    if_bandwidth = ifdetect.query_linkspeed(if_name)
+                except IOError as err:
+                    if err.errno != errno.EOPNOTSUPP:
+                        raise
+                    # This happens for virtual devices (e.g. kvm, bridge, tap)
+                    if_bandwidth = bandwidth
             else:
                 if_bandwidth = bandwidth
 
