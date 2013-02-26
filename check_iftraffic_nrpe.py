@@ -261,7 +261,7 @@ def parse_arguments():
                    help='Percentage for value WARNING.')
     p.add_argument('-l', '--linktype', nargs='*',
                    help='only consider interfaces with given linktype')
-    p.add_argument('-b', '--bandwidth', default=13107200,
+    p.add_argument('-b', '--bandwidth', default=None,
                    help='Bandwidth in bytes/s \
                         (default 13107200 = 100Mb/s * 1024 * 1024 / 8. \
                         Yes, you must calculate.')
@@ -295,7 +295,8 @@ def main():
     data_file = '/var/tmp/traffic_stats.dat'
     uptime1 = uptime()
     args = parse_arguments()
-    bandwidth = int(args.bandwidth)
+    default_bandwidth = 13107200
+    bandwidth = args.bandwidth and int(args.bandwidth)
     problems = []
     ifdetect = InterfaceDetection()
 
@@ -392,16 +393,18 @@ def main():
             # Decide a Nagios status
             #
 
-            if ifdetect.query_linktype(if_name) == "ethernet":
+            if bandwidth:
+                if_bandwidth = bandwidth
+            elif ifdetect.query_linktype(if_name) == "ethernet":
                 try:
                     if_bandwidth = ifdetect.query_linkspeed(if_name)
                 except IOError as err:
                     if err.errno != errno.EOPNOTSUPP:
                         raise
                     # This happens for virtual devices (e.g. kvm, bridge, tap)
-                    if_bandwidth = bandwidth
+                    if_bandwidth = default_bandwidth
             else:
-                if_bandwidth = bandwidth
+                if_bandwidth = default_bandwidth
 
             # determine a status for TX
             new_exit_status = nagios_value_status(txbytes, if_bandwidth,
@@ -431,7 +434,7 @@ def main():
             warn_level = int(args.warning) * (if_bandwidth / 100)
             crit_level = int(args.critical) * (if_bandwidth / 100)
             min_level = 0.0
-            max_level = bandwidth
+            max_level = if_bandwidth
 
             perfdata.append(get_perfdata('out-' + if_name, txbytes, warn_level,
                             crit_level, min_level, max_level))
