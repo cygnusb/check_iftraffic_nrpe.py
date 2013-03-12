@@ -501,8 +501,8 @@ def main():
     # Program output
     #
 
-    print "TRAFFIC %s: %s | %s " % (exit_status, ' '.join(problems),
-                                    ' '.join(perfdata))
+    print "TRAFFIC %s: %s | %s " % (exit_status, ' '.join(sorted(problems)),
+                                    ' '.join(sorted(perfdata)))
 
     # This is the exit code
     sys.exit(_status_codes[exit_status])
