@@ -381,7 +381,7 @@ def main():
         save_data(data_file, traffic, _counters, uptime1)
     except IOError:
         problems.append("Cannot write in %s." % data_file)
-        exit_status = 'UNKNOWN'
+        exit_status = 'CRITICAL'
 
     #
     # Data filtering and preparation
