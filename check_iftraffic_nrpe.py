@@ -521,5 +521,5 @@ if __name__ == '__main__':
     default_values["warning"] = 85
     default_values["critical"] = 98
     default_values["data_file"] = '/var/tmp/traffic_stats.dat'
-    default_values["bandwidth"] = 13107200
+    default_values["bandwidth"] = 131072000 # 1000 MByte/s 
     main(default_values)
