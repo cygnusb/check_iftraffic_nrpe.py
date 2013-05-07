@@ -470,15 +470,15 @@ def main(default_values):
             new_exit_status = nagios_value_status(rates['txbytes'], if_bandwidth,
                                                   args.critical, args.warning)
             if new_exit_status != 'OK':
-                problems.append("%s: %sMbs/%sMbs" % \
-                                (if_name, rates['txbytes'], if_bandwidth))
+                problems.append("%s: %.2fMbit/%.2fMbit" % \
+                                (if_name, rates['txbytes']*8/1024/1024, if_bandwidth*8/1024/1024))
             exit_status = worst_status(exit_status, new_exit_status)
             # determine a status for RX
             new_exit_status = nagios_value_status(rates['rxbytes'], if_bandwidth,
                                                   args.critical, args.warning)
             if new_exit_status != 'OK':
-                problems.append("%s: %sMbs/%sMbs" % \
-                                (if_name, rates['rxbytes'], if_bandwidth))
+                problems.append("%s: %.2fMbit/%.2fMbit" % \
+                                (if_name, rates['rxbytes']*8/1024/1024, if_bandwidth*8/1024/1024))
             exit_status = worst_status(exit_status, new_exit_status)
 
             #
