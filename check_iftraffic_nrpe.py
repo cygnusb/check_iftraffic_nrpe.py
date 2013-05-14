@@ -115,7 +115,7 @@ def load_data(filename, columns):
     try:
         f = open(filename)
     except IOError:
-        return 0.0, values
+        raise ValueError("failed to open data file")
     last_modification = os.path.getmtime(filename)
     i = 0
     for line in f:
@@ -135,6 +135,8 @@ def load_data(filename, columns):
                 raise ValueError("data format upgrade")
             # create a nice dictionnary of the values
             values[device_name] = dict(zip(columns, data))
+    if i < 1:
+        raise ValueError("data file truncated")
     return uptime0, last_modification, values
 
 
