@@ -174,6 +174,7 @@ class InterfaceDetection(object):
     SIOCGIFHWADDR = 0x8927
     SIOCETHTOOL = 0x8946
     ETHTOOL_GSET = 0x1
+    ETHTOOL_GDRVINFO = 0x3
     IF_NAMESIZE = 16
     families = {
         1: "ethernet",
@@ -209,6 +210,15 @@ class InterfaceDetection(object):
         _, _, _, speed = struct.unpack(fmt, ethtoolcmd[:struct.calcsize(fmt)])
         # speed is reported in MBit
         return speed * 1024 * 1024 / 8
+
+    def query_driver(self, interface):
+        ethtoolcmd = struct.pack("L1024x", self.ETHTOOL_GDRVINFO)
+        ethtoolcmd = array.array("b", ethtoolcmd)
+        payload = struct.pack("P", ethtoolcmd.buffer_info()[0])
+        self.query_ifreq(interface, self.SIOCETHTOOL, payload)
+        fmt = "I32s" # See /usr/include/linux/ethtool.h struct ethtool_drvinfo
+        _, driver = struct.unpack(fmt, ethtoolcmd[:struct.calcsize(fmt)])
+        return driver.rstrip("\0")
 
     def linktype_filter(self, linktypes, data):
         for device in list(data):
@@ -397,12 +407,20 @@ def main():
                 if_bandwidth = bandwidth
             elif ifdetect.query_linktype(if_name) == "ethernet":
                 try:
-                    if_bandwidth = ifdetect.query_linkspeed(if_name)
-                except IOError as err:
-                    if err.errno != errno.EOPNOTSUPP:
-                        raise
-                    # This happens for virtual devices (e.g. kvm, bridge, tap)
+                    driver = ifdetect.query_driver(if_name)
+                except IOError:
+                    driver = "unknown"
+                if driver == "tun":
+                    # The tap driver reports bogus 10Mbit
                     if_bandwidth = default_bandwidth
+                else:
+                    try:
+                        if_bandwidth = ifdetect.query_linkspeed(if_name)
+                    except IOError as err:
+                        if err.errno != errno.EOPNOTSUPP:
+                            raise
+                        # This happens for virtual devices (e.g. kvm, bridge, tap)
+                        if_bandwidth = default_bandwidth
             else:
                 if_bandwidth = default_bandwidth
 
