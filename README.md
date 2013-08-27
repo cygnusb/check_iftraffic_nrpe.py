@@ -48,11 +48,12 @@ Define a Gigabit interface (the value must be in bytes):
 Authors
 -------
 Copyright 2012 Van Dyck Sven <mobilesvenvd@gmail.com> (original perl version)
-Copyright 2012 Samuel Krieg <my_first_name.my_last_name at gmail dot com>
+Copyright 2012-2013 Samuel Krieg <my_first_name.my_last_name at gmail dot com>
 Copyright 2013 Cygnus Networks GmbH <info@cygnusnetworks.de>
 
-Neither Van Dyck Sven nor Samuel Krieg have specified a license for their
-works. According to the GitHub terms of serivce the authors implicitly allow
-anyone to view and fork their sources. The contributions of
-`*@cygnusnetworks.de` are licensed under the MIT/X11 license in the hopes that
-all authors license their works under a compatible license such as GPLv2.
+Van Dyck Sven did not specify a license for his works. According to the GitHub
+terms of serivce the author implicitly allow anyone to view and fork his
+sources. The contributions of `*@cygnusnetworks.de` are licensed under the
+MIT/X11 license in the hopes that all authors license their works under a
+compatible license such as GPL. The contributions from Samuel Krieg have been
+licensed under the GPLv3 license.
